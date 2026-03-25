@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teleprompter: Enrollment with the Grand Instructor</title>
+    <!-- Tailwind for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Babel for logic -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .pause-dot {
+            color: #ef4444;
+            font-size: 1.4em;
+            line-height: 0;
+            margin: 0 3px;
+            vertical-align: middle;
+        }
+
+        /* Script Formatting */
+        .script-text {
+            font-size: 1.85rem; /* Large readable text */
+            line-height: 1.7;
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        
+        /* Time Markers in Script */
+        .time-marker {
+            color: #818cf8; /* Indigo-400 */
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 900;
+            font-size: 1rem;
+            background: #1e1b4b; /* Indigo-950 */
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            display: inline-block;
+            margin-bottom: 0.5rem;
+            border: 1px solid #4338ca;
+        }
+
+        /* Section Headers in Script */
+        .section-header {
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 1.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 2.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #334155;
+        }
+
+        .paragraph-spacing {
+            margin-bottom: 2.5rem; /* Generous spacing between paragraphs */
+        }
+
+        .visual-aid-cue {
+            background: #431407;
+            border: 2px dashed #f97316;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            color: #fdba74;
+            font-weight: 700;
+            text-align: center;
+            margin: 2rem 0;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const TALK_TITLE = "Enrollment with the Grand Instructor";
+        const TOTAL_MINUTES = 10; 
+        const RED_WARNING_MINUTES = 2; 
+        
+        // Flash markers at 8, 6, 4, and 2 minutes
+        const FLASH_MARKERS_MINUTES = [8, 6, 4, 2]; 
+        // ==========================================
+
+        const App = () => {
+            const [timeLeft, setTimeLeft] = useState(TOTAL_MINUTES * 60);
+            const [isActive, setIsActive] = useState(false);
+            const [activeTab, setActiveTab] = useState('script'); 
+            const [isFlashing, setIsFlashing] = useState(false);
+
+            const flashMarkersSeconds = FLASH_MARKERS_MINUTES.map(m => m * 60);
+
+            useEffect(() => {
+                let interval = null;
+                if (isActive && timeLeft > 0) {
+                    interval = setInterval(() => {
+                        setTimeLeft((time) => {
+                            const nextTime = time - 1;
+                            if (flashMarkersSeconds.includes(nextTime)) {
+                                setIsFlashing(true);
+                                setTimeout(() => setIsFlashing(false), 200);
+                            }
+                            return nextTime;
+                        });
+                    }, 1000);
+                } else if (timeLeft === 0) {
+                    setIsActive(false);
+                    clearInterval(interval);
+                }
+                return () => clearInterval(interval);
+            }, [isActive, timeLeft]);
+
+            const formatTime = (seconds) => {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${m}:${s < 10 ? '0' : ''}${s}`;
+            };
+
+            const toggleTimer = () => setIsActive(!isActive);
+            const resetTimer = () => {
+                setIsActive(false);
+                setTimeLeft(TOTAL_MINUTES * 60);
+                setIsFlashing(false);
+            };
+
+            const processText = (text) => {
+                const parts = text.split(/(\(pause.*?\))/i);
+                return parts.map((part, index) => {
+                    if (part.toLowerCase().includes('(pause')) {
+                        let dots = 1;
+                        const lower = part.toLowerCase();
+                        if (lower.includes('one')) dots = 1;
+                        else if (lower.includes('2-3')) dots = 3;
+                        else if (lower.includes('2')) dots = 2;
+                        else if (lower.includes('3')) dots = 3;
+                        else if (lower.includes('4')) dots = 4;
+                        
+                        return (
+                            <span key={index} className="inline-flex items-center mx-1">
+                                {[...Array(dots)].map((_, i) => (
+                                    <span key={i} className="pause-dot">●</span>
+                                ))}
+                            </span>
+                        );
+                    }
+                    return <span key={index}>{part}</span>;
+                });
+            };
+
+            return (
+                <div className="min-h-screen pb-32">
+                    {isFlashing && (
+                        <div className="fixed inset-0 z-[100] bg-white pointer-events-none opacity-100 transition-opacity duration-75"></div>
+                    )}
+
+                    <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-2xl">
+                        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <button 
+                                    onClick={toggleTimer} 
+                                    className={`px-6 py-3 rounded-xl font-bold text-white transition-all shadow-lg ${isActive ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}
+                                >
+                                    {isActive ? 'PAUSE' : 'START'}
+                                </button>
+                                <button 
+                                    onClick={resetTimer} 
+                                    className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold transition-all border border-slate-700"
+                                >
+                                    RESET
+                                </button>
+                            </div>
+
+                            <div className={`text-6xl font-mono font-black tracking-tighter ${timeLeft <= (RED_WARNING_MINUTES * 60) ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                                {formatTime(timeLeft)}
+                            </div>
+
+                            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                                <button 
+                                    onClick={() => setActiveTab('script')}
+                                    className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'script' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    SCRIPT
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('outline')}
+                                    className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'outline' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    OUTLINE
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="pt-40 px-6">
+                        {activeTab === 'script' ? (
+                            <div className="script-text">
+                                <h1 className="text-center text-4xl font-black mb-2 text-white">{TALK_TITLE}</h1>
+                                <p className="text-center text-slate-500 font-bold mb-12 uppercase tracking-widest">{TOTAL_MINUTES} Minute Talk</p>
+
+                                <div className="time-marker">10:00 LEFT</div>
+                                <div className="section-header">I. The power of a willing student</div>
+                                
+                                <p className="paragraph-spacing">{processText("Have you ever learned a lifelong lesson outside of a textbook? (pause 2 beats) For me, it was the contrast between two classrooms.")}</p>
+
+                                <p className="paragraph-spacing">{processText("In my high school, attendance was forced. Students slumped in their seats, and the teacher was forced to act like a prison guard rather than an educator. Because the students didn’t want to be there, the teacher’s potential was handcuffed.")}</p>
+
+                                <p className="paragraph-spacing">{processText("But in my tech college course, the atmosphere was electric. Those students had 'skin in the game'—they chose to be there. Because they were expectant, the teacher was finally free to be great, pouring 100% of their heart into the lesson.")}</p>
+
+                                <p className="paragraph-spacing">{processText("That taught me a vital truth: The quality of the instruction we receive is determined by the quality of the attention we give. (pause 2 beats) Today, we sit in the classroom of the 'Grand Instructor,' Jehovah. Are we like those high schoolers, just waiting for the 'amen'? Or are we like those tech students—invested, eager, and creating an environment where Jehovah is free to truly transform our lives?")}</p>
+
+                                <div className="time-marker mt-12">8:15 LEFT</div>
+                                <div className="section-header">II. Who is the Instructor?</div>
+
+                                <p className="paragraph-spacing">{processText("To want to be in a class, you have to respect the teacher. Jehovah identifies himself as our God and Teacher, let’s look at that verse:")}</p>
+
+                                <div className="my-8 p-6 bg-slate-900 border-l-4 border-indigo-500 text-indigo-100 italic text-2xl">
+                                    <p className="mb-2 font-bold text-sm text-indigo-400 uppercase">Isaiah 48:17</p>
+                                    {processText("17 I, Jehovah, am your God, the One teaching you to benefit yourself, the One guiding you in the way you should walk.")}
+                                </div>
+
+                                <p className="paragraph-spacing">{processText("In that tech college, I saw that a great instructor is unlocked by a willing student. But what makes Jehovah the 'Grand Instructor'? According to Isaiah 48:17, He is the one teaching us to benefit ourselves. He doesn't just lecture; He uses the most sophisticated teaching tools in existence.")}</p>
+
+                                <p className="paragraph-spacing">{processText("First, He uses Creation. In Job 12:7–9, we are told to 'ask the animals' and 'the birds of the heaven.' Think of creation as Jehovah’s universal visual aid. (pause 2 beats) When Jehovah points us to the stars, the seasons, or even the way a tiny bird is cared for, He isn't just showing us nature; He’s illustrating His power, His reliability, and His deep love for us.")}</p>
+
+                                <p className="paragraph-spacing">{processText("Second, He teaches us through His Laws. Exodus 24:12 mentions the stone tablets and the commandments written for our instruction. But these aren't just 'rules' to memorize for a test. They are principles to live by. Think of the Bible as the guide for a successful life. It tells us not just what to do, but why it works, protecting us from the 'failing grades' of life’s many pitfalls.")}</p>
+
+                                <p className="paragraph-spacing">{processText("Third, He provides a Personal Tutor: His Holy Spirit. In John 14:26, Jesus described this spirit as a 'helper' that would 'teach you all things.' Imagine having a personal tutor who stays with you after the lecture is over, whispering a reminder of the lesson exactly when you’re facing a difficult 'real-world' application. (pause 3 beats) That is the level of support the Grand Instructor provides through his active force.")}</p>
+
+                                <p className="paragraph-spacing font-bold text-white italic">{processText("But even with a personal tutor, the best textbooks, and the best teacher, the choice still belongs to the student to pay attention.")}</p>
+
+                                <div className="time-marker mt-12">6:15 LEFT</div>
+                                <div className="section-header">III. The Choice to Listen</div>
+
+                                <p className="paragraph-spacing">{processText("And here lies the most important part of His 'instruction...")}</p>
+
+                                <p className="paragraph-spacing">{processText("Jehovah never forces his students to open the book. Isaiah 48:18 begins with a heart-wrenching phrase: 'If only you would pay attention!' (pause 3 beats) Why doesn't He just force us to learn? Because He has given us the greatest gift a student can have: Free Will. We are created in His image, and because He has free will, we do too. He wants us to be students, not robots.")}</p>
+
+                                <p className="paragraph-spacing">{processText("In the Bible, the word for 'obedience' is often the exact same word as 'listening.' To Jehovah, obeying isn't about mindlessly following orders. That would be the same as forcing us to listen. Paying attention is the act of a student leaning in, listening with a learners heart, and choosing to follow the Instructor because we trust His expertise.")}</p>
+
+                                <p className="paragraph-spacing font-bold text-white">{processText("When we choose to listen, we aren't just following orders; we are exercising our dignity as free moral agents.")}</p>
+
+                                <div className="time-marker mt-12">4:15 LEFT</div>
+                                <div className="section-header">IV. The \"ROI\": Peace and Stability</div>
+
+                                <p className="paragraph-spacing">{processText("When we 'enroll' with our whole hearts, what does the Grand Instructor promise in return?")}</p>
+
+                                <div className="my-8 p-6 bg-slate-900 border-l-4 border-indigo-500 text-indigo-100 italic text-2xl">
+                                    <p className="mb-2 font-bold text-sm text-indigo-400 uppercase">Isaiah 48:18b</p>
+                                    {processText("18 ...Then your peace would become just like a river and your righteousness like the waves of the sea.")}
+                                </div>
+
+                                <p className="paragraph-spacing">{processText("Jehovah promises peace like a river—serene and ongoing. In Hebrew, this 'peace' implies health, soundness, and completeness. By listening, you become whole.")}</p>
+
+                                <div className="visual-aid-cue">DISPLAY VISUAL AID: WOMAN ON BEACH</div>
+
+                                <p className="paragraph-spacing">{processText("Look at the second promise: 'Your righteousness like the waves.' Watching waves roll in gives a sense of permanence. (pause 2 beats) Jehovah is saying your course of doing right can have that same constant, unstoppable rhythm.")}</p>
+
+                                <p className="paragraph-spacing">{processText("But notice how she walks. She is free of the burden of beach equipment. Lugging a heavy cooler through deep, dry sand is exhausting; you sink and tire out quickly. Yet, she isn’t struggling. She is walking on the firm, wet sand—the 'easiest path' on the beach. She didn’t build it; the Creator provided it.")}</p>
+
+                                <div className="my-8 p-6 bg-slate-900 border-l-4 border-indigo-500 text-indigo-100 italic text-2xl">
+                                    <p className="mb-2 font-bold text-sm text-indigo-400 uppercase">Psalm 55:22</p>
+                                    {processText("22 Throw your burden on Jehovah, And he will sustain you. Never will he allow the righteous one to fall.")}
+                                </div>
+
+                                <p className="paragraph-spacing">{processText("She isn’t carrying a 'heavy cooler' of worry or self-reliance. She has thrown her burden on the Grand Instructor. By following His instructions, she is walking the righteous stable path He provided. She is sustained, not by her own willpower, but by the very ground the Instructor has placed beneath her feet.")}</p>
+
+                                <p className="paragraph-spacing font-bold text-white">{processText("Doesn’t it build your faith to know He provides the very ground we walk on? A peace that flows like a river, and a righteous path as stable as the tides.")}</p>
+
+                                <div className="time-marker mt-12">1:00 LEFT</div>
+                                <div className="section-header">V. Conclusion: What is Your Tuition?</div>
+
+                                <p className="paragraph-spacing">{processText("In high school, we were forced to be in those seats. In the tech college, a tuition was required. In the classroom of the Grand Instructor Jehovah, the education is offered freely—but it still requires a payment.")}</p>
+
+                                <p className="paragraph-spacing font-bold text-indigo-300">{processText("What is that payment? It is our life force. It is our soul, our energy, our heart, and our mind. We 'buy' this instruction by giving Jehovah the only thing He doesn't already have: Our voluntary love and our decision to listen.")}</p>
+
+                                <p className="paragraph-spacing">{processText("We don't have to be here taking in instruction. No one is forcing us. What a privilege we have to learn from the Grand Instructor, Jehovah! What a gift! (pause 2 beats)")}</p>
+
+                                <p className="paragraph-spacing">{processText("So, let’s be like those tech students. Let’s invest our energy and our free will into His teachings. When we do, we aren't just gaining information; we are throwing off our heavy burdens and walking the firm, peaceful path that only He can provide. (pause 1 beat)")}</p>
+
+                                <p className="text-center text-4xl font-black text-white mt-12">{processText("Certainly, when we choose to listen to Jehovah, we will without a doubt be blessed!")}</p>
+
+                            </div>
+                        ) : (
+                            <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in zoom-in-95 duration-300">
+                                
+                                <div className="border-l-8 border-indigo-600 pl-10 space-y-6">
+                                    <h2 className="text-indigo-400 font-black text-4xl uppercase tracking-tighter underline">I. The Power of a Willing Student (2 Min)</h2>
+                                    <ul className="text-2xl space-y-4 text-slate-300 font-bold list-disc ml-6">
+                                        <li>High school contrast: forced, frustrated, "handcuffed" teacher.</li>
+                                        <li>Tech college: voluntary, "skin in the game," unlocked teacher.</li>
+                                        <li>Application: Are we "enrolled" with our hearts?</li>
+                                    </ul>
+                                </div>
+
+                                <div className="border-l-8 border-slate-700 pl-10 space-y-6">
+                                    <h2 className="text-indigo-400 font-black text-4xl uppercase tracking-tighter underline">II. Who is the Instructor? (2 Min)</h2>
+                                    <ul className="text-2xl space-y-4 text-slate-300 font-bold list-disc ml-6">
+                                        <li><b>Isaiah 48:17:</b> Teaching to benefit ourselves.</li>
+                                        <li>Tools: 1. Creation (Job 12:7-9) | 2. Laws (Exodus 24:12) | 3. Holy Spirit (John 14:26).</li>
+                                        <li>The choice still belongs to the student.</li>
+                                    </ul>
+                                </div>
+
+                                <div className="border-l-8 border-indigo-600 pl-10 space-y-6">
+                                    <h2 className="text-indigo-400 font-black text-4xl uppercase tracking-tighter underline">III. The Choice to Listen (2 Min)</h2>
+                                    <ul className="text-2xl space-y-4 text-slate-300 font-bold list-disc ml-6">
+                                        <li><b>Isaiah 48:18a:</b> "If only you would pay attention!"</li>
+                                        <li>Free Will: Students, not robots.</li>
+                                        <li>Obedience = Active Listening.</li>
+                                    </ul>
+                                </div>
+
+                                <div className="border-l-8 border-slate-700 pl-10 space-y-6">
+                                    <h2 className="text-indigo-400 font-black text-4xl uppercase tracking-tighter underline">IV. The \"ROI\": Peace and Stability (3 Min)</h2>
+                                    <ul className="text-2xl space-y-4 text-slate-300 font-bold list-disc ml-6">
+                                        <li><b>Isaiah 48:18b:</b> Peace like a river, Righteousness like waves.</li>
+                                        <li><b>VISUAL AID:</b> Waves (Permanence) vs. Dry Sand (Burden).</li>
+                                        <li><b>Psalm 55:22:</b> Throwing the "heavy cooler" of worry.</li>
+                                        <li>The Firm Sand: Path provided by the Creator.</li>
+                                    </ul>
+                                </div>
+
+                                <div className="border-l-8 border-indigo-600 pl-10 space-y-6">
+                                    <h2 className="text-indigo-400 font-black text-4xl uppercase tracking-tighter underline">V. Conclusion (1 Min)</h2>
+                                    <ul className="text-2xl space-y-4 text-slate-300 font-bold list-disc ml-6">
+                                        <li>Tuition: Our life force, heart, and love.</li>
+                                        <li>Privilege: A freely offered gift.</li>
+                                        <li>Result: Certainly blessed!</li>
+                                    </ul>
+                                </div>
+
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
